@@ -41,13 +41,12 @@ func (p *PubSub) start() {
 // Subscribe ...
 func (p *PubSub) Subscribe(topic string) <-chan interface{} {
 	ch := make(chan interface{}, 1)
-	p.mu.Lock()
 	p.subscribe(topic, ch)
-	p.mu.Unlock()
 	return ch
 }
 
 func (p *PubSub) subscribe(topic string, ch chan interface{}) {
+	p.mu.Lock()
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
@@ -56,18 +55,17 @@ func (p *PubSub) subscribe(topic string, ch chan interface{}) {
 			p.registries[i].subscribers = append(p.registries[i].subscribers, ch)
 		}
 	}
+	p.mu.Unlock()
 }
 
 // Publish ...
 func (p *PubSub) Publish(topic string, message interface{}) {
-	p.mu.Lock()
 	subscribers := p.subscribers(topic)
 	if subscribers != nil {
 		for _, subscriber := range subscribers {
 			subscriber <- message
 		}
 	}
-	p.mu.Unlock()
 }
 
 func (p *PubSub) subscribers(topic string) []chan interface{} {
@@ -78,5 +76,6 @@ func (p *PubSub) subscribers(topic string) []chan interface{} {
 			return p.registries[i].subscribers
 		}
 	}
+
 	return nil
 }
