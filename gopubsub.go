@@ -28,7 +28,7 @@ func NewPubSub() *PubSub {
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
-		ps.registries[i].subscribers = make([]chan interface{}, initialSubscriberCapacity)
+		ps.registries[i].subscribers = make([]chan interface{}, 0, initialSubscriberCapacity)
 	}
 
 	go ps.start()
@@ -41,10 +41,19 @@ func (p *PubSub) start() {
 // Subscribe ...
 func (p *PubSub) Subscribe(topic string) <-chan interface{} {
 	ch := make(chan interface{}, 1)
-
-	// TODO generate hash
-
+	p.subscribe(topic, ch)
 	return ch
+}
+
+func (p *PubSub) subscribe(topic string, ch chan interface{}) {
+	hash := int(generateHash(topic)) % len(p.registries)
+
+	for i := hash; i < len(p.registries); i++ {
+		if p.registries[i].topic == "" {
+			// TODO if capacity is insufficient, reserve again
+			p.registries[i].subscribers = append(p.registries[i].subscribers, ch)
+		}
+	}
 }
 
 // Publish ...
