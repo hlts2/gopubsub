@@ -15,9 +15,9 @@ type PubSub struct {
 	registries []*registry
 }
 
-// Subscriber ...
-type Subscriber interface {
-	Read() <-chan interface{}
+type registry struct {
+	topic       string
+	subscribers subscribers
 }
 
 type subscriber struct {
@@ -27,14 +27,14 @@ type subscriber struct {
 
 type subscribers []*subscriber
 
+// Subscriber ...
+type Subscriber interface {
+	Read() <-chan interface{}
+}
+
 // Read ...
 func (s *subscriber) Read() <-chan interface{} {
 	return s.ch
-}
-
-type registry struct {
-	topic       string
-	subscribers subscribers
 }
 
 // NewPubSub returns PubSub object
@@ -45,7 +45,10 @@ func NewPubSub() *PubSub {
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
-		ps.registries[i].subscribers = make(subscribers, 0, initialSubscriberCapacity)
+		ps.registries = append(ps.registries, &registry{
+			topic:       "",
+			subscribers: make(subscribers, 0, initialSubscriberCapacity),
+		})
 	}
 
 	return ps
