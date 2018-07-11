@@ -21,3 +21,29 @@ func TestNew(t *testing.T) {
 		}
 	}
 }
+
+func TestSubscribe(t *testing.T) {
+	ps := NewPubSub()
+
+	subscriber1 := ps.Subscribe("t1")
+	subscriber2 := ps.Subscribe("t1")
+	subscriber3 := ps.Subscribe("t2")
+
+	ps.Publish("t1", "hi")
+	ps.Publish("t2", "hello")
+
+	got := <-subscriber1.Read()
+	if "hi" != got {
+		t.Errorf("message of subscriber1 is wrong. expected: %v, got: %v", "hi", got)
+	}
+
+	got = <-subscriber2.Read()
+	if "hi" != got {
+		t.Errorf("message of subscriber2 is wrong. expected: %v, got: %v", "hi", got)
+	}
+
+	got = <-subscriber3.Read()
+	if "hello" != got {
+		t.Errorf("message of subscribers is wrong. expected: %v, got: %v", "hello", got)
+	}
+}
