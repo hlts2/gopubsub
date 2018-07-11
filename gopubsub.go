@@ -41,7 +41,7 @@ func (s *subscriber) Read() <-chan interface{} {
 func NewPubSub() *PubSub {
 	ps := &PubSub{
 		mu:         new(sync.Mutex),
-		registries: make([]*registry, defaultPubSubTopicCapacity),
+		registries: make([]*registry, 0, defaultPubSubTopicCapacity),
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
