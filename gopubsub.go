@@ -70,6 +70,10 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 }
 
 func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
+	if topic == "" {
+		return
+	}
+
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
