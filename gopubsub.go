@@ -111,7 +111,6 @@ func (p *PubSub) Publish(topic string, message interface{}) {
 		}
 
 		p.mu.Unlock()
-
 	}(p)
 }
 
