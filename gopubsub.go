@@ -100,16 +100,19 @@ func (p *PubSub) Publish(topic string, message interface{}) {
 		return
 	}
 
-	p.mu.Lock()
+	go func(p *PubSub) {
+		p.mu.Lock()
 
-	subscribers := p.subscribers(topic)
-	if subscribers != nil {
-		for _, subscriber := range subscribers {
-			subscriber.ch <- message
+		subscribers := p.subscribers(topic)
+		if subscribers != nil {
+			for _, subscriber := range subscribers {
+				subscriber.ch <- message
+			}
 		}
-	}
 
-	p.mu.Unlock()
+		p.mu.Unlock()
+
+	}(p)
 }
 
 func (p *PubSub) subscribers(topic string) subscribers {
