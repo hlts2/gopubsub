@@ -12,71 +12,123 @@ const (
 // PubSub ...
 type PubSub struct {
 	mu         *sync.Mutex
-	registries []registry
+	registries []*registry
+}
+
+// Subscriber ...
+type Subscriber interface {
+	Read() <-chan interface{}
+}
+
+type subscriber struct {
+	ch  chan interface{}
+	pos int
+}
+
+type subscribers []*subscriber
+
+// Read ...
+func (s *subscriber) Read() <-chan interface{} {
+	return s.ch
 }
 
 type registry struct {
 	topic       string
-	subscribers []chan interface{}
+	subscribers subscribers
 }
 
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
 		mu:         new(sync.Mutex),
-		registries: make([]registry, defaultPubSubTopicCapacity),
+		registries: make([]*registry, defaultPubSubTopicCapacity),
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
-		ps.registries[i].subscribers = make([]chan interface{}, 0, initialSubscriberCapacity)
+		ps.registries[i].subscribers = make(subscribers, 0, initialSubscriberCapacity)
 	}
 
-	go ps.start()
 	return ps
 }
 
-func (p *PubSub) start() {
-}
-
 // Subscribe ...
-func (p *PubSub) Subscribe(topic string) <-chan interface{} {
-	ch := make(chan interface{}, 1)
+func (p *PubSub) Subscribe(topic string) Subscriber {
+	subscriber := &subscriber{
+		ch: make(chan interface{}, 1),
+	}
+
 	p.mu.Lock()
-	p.subscribe(topic, ch)
+
+	p.subscribe(topic, subscriber)
+
 	p.mu.Unlock()
-	return ch
+
+	return subscriber
 }
 
-func (p *PubSub) subscribe(topic string, ch chan interface{}) {
+func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
-		if p.registries[i].topic == "" {
-			// TODO if capacity is insufficient, reserve again
-			p.registries[i].subscribers = append(p.registries[i].subscribers, ch)
+		registory := p.registries[i]
+		if registory.topic == "" {
+			break
 		}
+
+		// TODO if capacity is insufficient, reserve again
+		if len(registory.subscribers) == 0 {
+			subscriber.pos = 0
+		} else {
+			subscriber.pos = len(registory.subscribers) - 1
+		}
+		registory.subscribers = append(registory.subscribers, subscriber)
 	}
 }
 
 // Publish ...
 func (p *PubSub) Publish(topic string, message interface{}) {
 	p.mu.Lock()
+
 	subscribers := p.subscribers(topic)
 	if subscribers != nil {
 		for _, subscriber := range subscribers {
-			subscriber <- message
+			subscriber.ch <- message
 		}
 	}
+
 	p.mu.Unlock()
 }
 
-func (p *PubSub) subscribers(topic string) []chan interface{} {
+func (p *PubSub) subscribers(topic string) subscribers {
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
-		if p.registries[i].topic == topic {
-			return p.registries[i].subscribers
+		registory := p.registries[i]
+		if registory.topic == topic {
+			return registory.subscribers
 		}
 	}
+
 	return nil
+}
+
+// UnSubscribe ...
+func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
+	if s, ok := target.(*subscriber); ok {
+		p.mu.Lock()
+
+		p.unSubscribe(topic, s)
+
+		p.mu.Unlock()
+	}
+}
+
+func (p *PubSub) unSubscribe(topic string, subscriber *subscriber) {
+	subscribers := p.subscribers(topic)
+	if subscribers != nil {
+		return
+	}
+
+	pos := subscriber.pos
+	subscribers = append(subscribers[:pos], subscribers[pos+1:]...)
 }
