@@ -93,6 +93,10 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 
 // Publish ...
 func (p *PubSub) Publish(topic string, message interface{}) {
+	if topic == "" {
+		return
+	}
+
 	p.mu.Lock()
 
 	subscribers := p.subscribers(topic)
@@ -120,6 +124,10 @@ func (p *PubSub) subscribers(topic string) subscribers {
 
 // UnSubscribe ...
 func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
+	if topic == "" {
+		return
+	}
+
 	if s, ok := target.(*subscriber); ok {
 		p.mu.Lock()
 
