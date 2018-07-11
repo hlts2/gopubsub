@@ -128,10 +128,10 @@ func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 		return
 	}
 
-	if s, ok := target.(*subscriber); ok {
+	if ss, ok := target.(*subscriber); ok {
 		p.mu.Lock()
 
-		p.unSubscribe(topic, s)
+		p.unSubscribe(topic, ss)
 
 		p.mu.Unlock()
 	}
