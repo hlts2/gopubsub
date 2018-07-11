@@ -78,16 +78,15 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 
 	for i := hash; i < len(p.registries); i++ {
 		registory := p.registries[i]
-		if registory.topic == "" {
-			break
-		}
 
-		// TODO if capacity is insufficient, reserve again
-		if len(registory.subscribers) == 0 {
+		if registory.topic == "" {
+			registory.topic = topic
 			subscriber.pos = 0
 		} else {
 			subscriber.pos = len(registory.subscribers) - 1
 		}
+
+		// TODO if capacity is insufficient, reserve again
 		registory.subscribers = append(registory.subscribers, subscriber)
 	}
 }
