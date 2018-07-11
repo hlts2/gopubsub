@@ -9,7 +9,7 @@ const (
 	initialSubscriberCapacity  = 100
 )
 
-// PubSub ...
+// PubSub is pubsub messasing object
 type PubSub struct {
 	mu         *sync.Mutex
 	registries []*registry
@@ -27,12 +27,12 @@ type subscriber struct {
 
 type subscribers []*subscriber
 
-// Subscriber ...
+// Subscriber is interface that wraps the Read methods
 type Subscriber interface {
 	Read() <-chan interface{}
 }
 
-// Read ...
+// Read returns the channel that receive the message
 func (s *subscriber) Read() <-chan interface{} {
 	return s.ch
 }
@@ -54,7 +54,7 @@ func NewPubSub() *PubSub {
 	return ps
 }
 
-// Subscribe ...
+// Subscribe subscribes to a topic
 func (p *PubSub) Subscribe(topic string) Subscriber {
 	subscriber := &subscriber{
 		ch: make(chan interface{}, 1),
@@ -91,7 +91,7 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 	}
 }
 
-// Publish ...
+// Publish sends a message to subscribers subscribing to topic
 func (p *PubSub) Publish(topic string, message interface{}) {
 	if topic == "" {
 		return
@@ -122,7 +122,7 @@ func (p *PubSub) subscribers(topic string) subscribers {
 	return nil
 }
 
-// UnSubscribe ...
+// UnSubscribe unsubscribes topic
 func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 	if topic == "" {
 		return
