@@ -23,11 +23,11 @@ type registry struct {
 type registries []*registry
 
 type subscriber struct {
-	ch  chan interface{}
-	pos int
+	ch        chan interface{}
+	positions map[string]int
 }
 
-type subscribers []*subscriber
+type subscribers []subscriber
 
 // Subscriber is interface that wraps the Read methods
 type Subscriber interface {
@@ -59,7 +59,8 @@ func NewPubSub() *PubSub {
 // Subscribe subscribes to a topic
 func (p *PubSub) Subscribe(topic string) Subscriber {
 	subscriber := &subscriber{
-		ch: make(chan interface{}, 1),
+		ch:        make(chan interface{}, 1),
+		positions: make(map[string]int),
 	}
 
 	p.mu.Lock()
@@ -76,22 +77,26 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 		return
 	}
 
+	if _, ok := subscriber.positions[topic]; ok {
+		return
+	}
+
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
-		registory := p.registries[i]
+		registry := p.registries[i]
 
-		if registory.topic == "" {
-			registory.topic = topic
-			subscriber.pos = 0
-		} else if registory.topic == topic {
-			subscriber.pos = len(registory.subscribers) - 1
+		if registry.topic == "" {
+			registry.topic = topic
+			subscriber.positions[topic] = 0
+		} else if registry.topic == topic {
+			subscriber.positions[topic] = len(registry.subscribers) - 1
 		} else {
 			continue
 		}
 
 		// TODO if capacity is insufficient, reserve again
-		registory.subscribers = append(registory.subscribers, subscriber)
+		registry.subscribers = append(registry.subscribers, *subscriber)
 		break
 	}
 }
@@ -150,6 +155,6 @@ func (p *PubSub) unSubscribe(topic string, subscriber *subscriber) {
 		return
 	}
 
-	pos := subscriber.pos
+	pos := subscriber.positions[topic]
 	subscribers = append(subscribers[:pos], subscribers[pos+1:]...)
 }
