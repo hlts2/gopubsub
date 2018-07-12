@@ -81,6 +81,10 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 		return
 	}
 
+	if _, ok := subscriber.positions[topic]; ok {
+		return
+	}
+
 	hash := int(generateHash(topic)) % len(p.registries)
 
 	for i := hash; i < len(p.registries); i++ {
