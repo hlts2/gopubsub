@@ -1,7 +1,9 @@
 package gopubsub
 
 import (
+	"hash/fnv"
 	"sync"
+	"unsafe"
 )
 
 const (
@@ -171,4 +173,10 @@ func (p *PubSub) unSubscribe(topic string, subscriber *subscriber) {
 
 	pos := subscriber.positions[topic]
 	subscribers = append(subscribers[:pos], subscribers[pos+1:]...)
+}
+
+func generateHash(text string) uint32 {
+	h := fnv.New32()
+	h.Write(*(*[]byte)(unsafe.Pointer(&text)))
+	return h.Sum32()
 }
