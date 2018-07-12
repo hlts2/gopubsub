@@ -12,13 +12,15 @@ const (
 // PubSub is pubsub messasing object
 type PubSub struct {
 	mu         *sync.Mutex
-	registries []*registry
+	registries registries
 }
 
 type registry struct {
 	topic       string
 	subscribers subscribers
 }
+
+type registries []*registry
 
 type subscriber struct {
 	ch  chan interface{}
@@ -41,7 +43,7 @@ func (s *subscriber) Read() <-chan interface{} {
 func NewPubSub() *PubSub {
 	ps := &PubSub{
 		mu:         new(sync.Mutex),
-		registries: make([]*registry, 0, defaultPubSubTopicCapacity),
+		registries: make(registries, 0, defaultPubSubTopicCapacity),
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
