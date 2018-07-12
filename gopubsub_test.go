@@ -47,3 +47,23 @@ func TestSubscribe(t *testing.T) {
 		t.Errorf("message of subscribers is wrong. expected: %v, got: %v", "hello", got)
 	}
 }
+
+func TestAddSubsrcibe(t *testing.T) {
+	ps := NewPubSub()
+
+	subscriber := ps.Subscribe("t1")
+	ps.AddSubsrcibe("t2", subscriber)
+
+	ps.Publish("t1", "hi")
+	ps.Publish("t2", "hello")
+
+	got := <-subscriber.Read()
+	if "hi" != got {
+		t.Errorf("message of subscribers is wrong. expected: %v, got: %v", "hi", got)
+	}
+
+	got = <-subscriber.Read()
+	if "hello" != got {
+		t.Errorf("message of subscribers is wrong. expected: %v, got: %v", "hello", got)
+	}
+}

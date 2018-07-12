@@ -59,7 +59,7 @@ func NewPubSub() *PubSub {
 // Subscribe subscribes to a topic
 func (p *PubSub) Subscribe(topic string) Subscriber {
 	subscriber := &subscriber{
-		ch:        make(chan interface{}, 1),
+		ch:        make(chan interface{}, 100),
 		positions: make(map[string]int),
 	}
 
@@ -70,6 +70,19 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 	p.mu.Unlock()
 
 	return subscriber
+}
+
+// AddSubsrcibe adds subscribes into a topic
+func (p *PubSub) AddSubsrcibe(topic string, target Subscriber) Subscriber {
+	if ss, ok := target.(*subscriber); ok {
+		p.mu.Lock()
+
+		p.subscribe(topic, ss)
+
+		p.mu.Unlock()
+	}
+
+	return target
 }
 
 func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
@@ -107,9 +120,9 @@ func (p *PubSub) Publish(topic string, message interface{}) {
 		return
 	}
 
-	go func(p *PubSub) {
-		p.mu.Lock()
+	p.mu.Lock()
 
+	go func(p *PubSub) {
 		subscribers := p.subscribers(topic)
 		if subscribers != nil {
 			for _, subscriber := range subscribers {
