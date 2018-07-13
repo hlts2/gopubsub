@@ -136,7 +136,7 @@ func (p *PubSub) startScaling() {
 }
 
 func (p *PubSub) downScale(targets subscribers) subscribers {
-	cap := len(targets)
+	cap := cap(targets)
 	length := len(targets)
 
 	// When length is 50% or less of cap of slice
