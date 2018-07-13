@@ -142,7 +142,7 @@ func (p *PubSub) downScale(targets subscribers) subscribers {
 	// When length is 50% or less of cap of slice
 	if cap > initialSubscriberCapacity && float32(cap)/float32(length) < 0.5 {
 		aloccap := initialSubscriberCapacity
-		for i := 2; length > cap; i++ {
+		for i := 2; length > aloccap; i++ {
 			aloccap = aloccap * i
 		}
 
