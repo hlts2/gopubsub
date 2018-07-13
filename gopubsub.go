@@ -58,7 +58,7 @@ func NewPubSub() *PubSub {
 		})
 	}
 
-	// go ps.startScaling()
+	go ps.startScaling()
 
 	return ps
 }
