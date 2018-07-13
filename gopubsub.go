@@ -204,6 +204,8 @@ func (p *PubSub) unSubscribe(topic string, subscriber *subscriber) {
 
 	pos := subscriber.positions[topic]
 	p.registries[idx].subscribers = append(p.registries[idx].subscribers[:pos], p.registries[idx].subscribers[pos+1:]...)
+
+	p.downScaleTgt <- idx
 }
 
 func (rs registries) Index(topic string) int {
