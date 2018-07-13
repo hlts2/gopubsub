@@ -8,7 +8,7 @@ import (
 
 const (
 	defaultPubSubTopicCapacity = 100000
-	notifyCapacity             = 10000
+	notificationCapacity       = 10000
 	initialSubscriberCapacity  = 100
 )
 
@@ -62,7 +62,7 @@ func NewPubSub() *PubSub {
 // Subscribe subscribes to a topic
 func (p *PubSub) Subscribe(topic string) Subscriber {
 	subscriber := &subscriber{
-		ch:        make(chan interface{}, notifyCapacity),
+		ch:        make(chan interface{}, notificationCapacity),
 		positions: make(map[string]int),
 	}
 
