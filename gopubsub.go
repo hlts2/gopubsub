@@ -167,28 +167,18 @@ func (p *PubSub) Publish(topic string, message interface{}) {
 	p.mu.Lock()
 
 	go func(p *PubSub) {
-		subscribers := p.subscribers(topic)
-		if subscribers != nil {
-			for _, subscriber := range subscribers {
-				subscriber.ch <- message
-			}
+		defer p.mu.Unlock()
+
+		idx := p.registries.Index(topic)
+		if idx == -1 {
+			return
 		}
 
-		p.mu.Unlock()
+		subscribers := p.registries[idx].subscribers
+		for _, subscriber := range subscribers {
+			subscriber.ch <- message
+		}
 	}(p)
-}
-
-func (p *PubSub) subscribers(topic string) subscribers {
-	hash := int(generateHash(topic)) % len(p.registries)
-
-	for i := hash; i < len(p.registries); i++ {
-		registory := p.registries[i]
-		if registory.topic == topic {
-			return registory.subscribers
-		}
-	}
-
-	return nil
 }
 
 // UnSubscribe unsubscribes topic
@@ -207,13 +197,25 @@ func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 }
 
 func (p *PubSub) unSubscribe(topic string, subscriber *subscriber) {
-	subscribers := p.subscribers(topic)
-	if subscribers != nil {
+	idx := p.registries.Index(topic)
+	if idx == -1 {
 		return
 	}
 
 	pos := subscriber.positions[topic]
-	subscribers = append(subscribers[:pos], subscribers[pos+1:]...)
+	p.registries[idx].subscribers = append(p.registries[idx].subscribers[:pos], p.registries[idx].subscribers[pos+1:]...)
+}
+
+func (rs registries) Index(topic string) int {
+	hash := int(generateHash(topic)) % len(rs)
+
+	for i := hash; i < len(rs); i++ {
+		if rs[i].topic == topic {
+			return i
+		}
+	}
+
+	return -1
 }
 
 func generateHash(text string) uint32 {
