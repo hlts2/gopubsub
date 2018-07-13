@@ -14,8 +14,9 @@ const (
 
 // PubSub is pubsub messasing object
 type PubSub struct {
-	mu         *sync.Mutex
-	registries registries
+	mu           *sync.Mutex
+	downScaleTgt chan int // Index of the registry to be scaled down
+	registries   registries
 }
 
 type registry struct {
@@ -45,8 +46,9 @@ func (s *subscriber) Read() <-chan interface{} {
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
-		mu:         new(sync.Mutex),
-		registries: make(registries, 0, defaultPubSubTopicCapacity),
+		mu:           new(sync.Mutex),
+		registries:   make(registries, 0, defaultPubSubTopicCapacity),
+		downScaleTgt: make(chan int),
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
@@ -55,6 +57,8 @@ func NewPubSub() *PubSub {
 			subscribers: make(subscribers, 0, initialSubscriberCapacity),
 		})
 	}
+
+	// go ps.startScaling()
 
 	return ps
 }
@@ -111,10 +115,47 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 			continue
 		}
 
-		// TODO if capacity is insufficient, reserve again
 		registry.subscribers = append(registry.subscribers, *subscriber)
+
 		break
 	}
+}
+
+func (p *PubSub) startScaling() {
+	for {
+		select {
+		case index := <-p.downScaleTgt:
+			p.mu.Lock()
+
+			p.registries[index].subscribers = p.downScale(p.registries[index].subscribers)
+
+			p.mu.Unlock()
+		}
+		// case index := <-p.upScaleTgt:
+	}
+}
+
+func (p *PubSub) downScale(targets subscribers) subscribers {
+	cap := len(targets)
+	length := len(targets)
+
+	// When length is 50% or less of cap of slice
+	if cap > initialSubscriberCapacity && float32(cap)/float32(length) < 0.5 {
+		aloccap := initialSubscriberCapacity
+		for i := 2; length > cap; i++ {
+			aloccap = aloccap * i
+		}
+
+		tmp := make(subscribers, 0, aloccap)
+
+		for _, subscriber := range targets {
+			tmp = append(tmp, subscriber)
+		}
+
+		return tmp
+	}
+
+	return targets
 }
 
 // Publish sends a message to subscribers subscribing to topic
