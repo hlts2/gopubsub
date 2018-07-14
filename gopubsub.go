@@ -131,7 +131,6 @@ func (p *PubSub) startScaling() {
 
 			p.mu.Unlock()
 		}
-		// case index := <-p.upScaleTgt:
 	}
 }
 
