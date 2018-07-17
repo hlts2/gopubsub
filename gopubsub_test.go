@@ -68,6 +68,24 @@ func TestAddSubsrcibe(t *testing.T) {
 	}
 }
 
+func TestUnSubscribe(t *testing.T) {
+	ps := NewPubSub()
+
+	subscriber := ps.Subscribe("t1")
+	ps.AddSubsrcibe("t2", subscriber)
+
+	ps.UnSubscribe("t1", subscriber)
+
+	ps.Publish("t1", "t1 - Hello World!!")
+	ps.Publish("t2", "t2 - Hello World!!")
+
+	got := <-subscriber.Read()
+
+	if "t2 - Hello World!!" != got {
+		t.Errorf("UnSubscribe is wrong. expected: %v, got: %v", "t2 - Hello World!!", got)
+	}
+}
+
 func TestGenerateHash(t *testing.T) {
 	tests := []struct {
 		text     string
