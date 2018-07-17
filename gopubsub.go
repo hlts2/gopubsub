@@ -17,6 +17,7 @@ type PubSub struct {
 	mu           *sync.Mutex
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
+	publish      chan func() (string, interface{})
 }
 
 type registry struct {
@@ -49,6 +50,7 @@ func NewPubSub() *PubSub {
 		mu:           new(sync.Mutex),
 		registries:   make(registries, 0, defaultPubSubTopicCapacity),
 		downScaleTgt: make(chan int),
+		publish:      make(chan func() (string, interface{}), 0),
 	}
 
 	for i := 0; i < defaultPubSubTopicCapacity; i++ {
@@ -58,7 +60,7 @@ func NewPubSub() *PubSub {
 		})
 	}
 
-	go ps.startScaling()
+	go ps.start()
 
 	return ps
 }
@@ -121,13 +123,29 @@ func (p *PubSub) subscribe(topic string, subscriber *subscriber) {
 	}
 }
 
-func (p *PubSub) startScaling() {
+func (p *PubSub) start() {
 	for {
 		select {
 		case index := <-p.downScaleTgt:
 			p.mu.Lock()
 
 			p.registries[index].subscribers = p.downScale(p.registries[index].subscribers)
+
+			p.mu.Unlock()
+		case publish := <-p.publish:
+			p.mu.Lock()
+
+			topic, message := publish()
+			idx := p.registries.Index(topic)
+			if idx == -1 {
+				p.mu.Unlock()
+				break
+			}
+
+			subscribers := p.registries[idx].subscribers
+			for _, subscriber := range subscribers {
+				subscriber.ch <- message
+			}
 
 			p.mu.Unlock()
 		}
@@ -163,21 +181,9 @@ func (p *PubSub) Publish(topic string, message interface{}) {
 		return
 	}
 
-	p.mu.Lock()
-
-	go func(p *PubSub) {
-		defer p.mu.Unlock()
-
-		idx := p.registries.Index(topic)
-		if idx == -1 {
-			return
-		}
-
-		subscribers := p.registries[idx].subscribers
-		for _, subscriber := range subscribers {
-			subscriber.ch <- message
-		}
-	}(p)
+	p.publish <- func() (string, interface{}) {
+		return topic, message
+	}
 }
 
 // UnSubscribe unsubscribes topic
