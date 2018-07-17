@@ -52,6 +52,6 @@ ps.UnSubscribe("t1")
 To fetch published message
 
 ```go
-<-subscriber.Read()
+message := <-subscriber.Read()
 ```
 
