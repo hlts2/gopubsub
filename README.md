@@ -55,3 +55,5 @@ To fetch published message
 message := <-subscriber.Read()
 ```
 
+## Author
+[hlts2](https://github.com/hlts2)
