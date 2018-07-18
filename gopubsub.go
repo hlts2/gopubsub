@@ -57,7 +57,7 @@ func (s *semaphore) Wait() {
 	}
 }
 
-// Signal for a semaphore and set flag off
+// Signal signals a semaphore and set flag off
 func (s *semaphore) Signal() {
 	s.flag = 0
 }
