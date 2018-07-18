@@ -4,7 +4,7 @@ import (
 	"hash/fnv"
 	"unsafe"
 
-	"github.com/hlts2/gomaphore"
+	"github.com/hlts2/lock-free"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 
 // PubSub is pubsub messasing object
 type PubSub struct {
-	semaphore    *gomaphore.Gomaphore
+	lf           lockfree.LockFree
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
 	publishItem  chan func() (string, interface{})
@@ -48,7 +48,7 @@ func (s *subscriber) Read() <-chan interface{} {
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
-		semaphore:    new(gomaphore.Gomaphore),
+		lf:           lockfree.New(),
 		registries:   make(registries, 0, defaultPubSubTopicCapacity),
 		downScaleTgt: make(chan int),
 		publishItem:  make(chan func() (string, interface{}), 0),
@@ -73,11 +73,11 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 		positions: make(map[string]int),
 	}
 
-	p.semaphore.Wait()
+	p.lf.Wait()
 
 	p.subscribe(topic, subscriber)
 
-	p.semaphore.Signal()
+	p.lf.Signal()
 
 	return subscriber
 }
@@ -86,11 +86,11 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 func (p *PubSub) AddSubsrcibe(topic string, target Subscriber) Subscriber {
 	if ss, ok := target.(*subscriber); ok {
 
-		p.semaphore.Wait()
+		p.lf.Wait()
 
 		p.subscribe(topic, ss)
 
-		p.semaphore.Signal()
+		p.lf.Signal()
 	}
 
 	return target
@@ -129,17 +129,17 @@ func (p *PubSub) start() {
 	for {
 		select {
 		case index := <-p.downScaleTgt:
-			p.semaphore.Wait()
+			p.lf.Wait()
 
 			p.registries[index].subscribers = p.downScale(p.registries[index].subscribers)
 
-			p.semaphore.Signal()
+			p.lf.Signal()
 		case item := <-p.publishItem:
-			p.semaphore.Wait()
+			p.lf.Wait()
 
 			p.publish(item())
 
-			p.semaphore.Signal()
+			p.lf.Signal()
 		}
 	}
 }
@@ -197,11 +197,11 @@ func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 	}
 
 	if ss, ok := target.(*subscriber); ok {
-		p.semaphore.Wait()
+		p.lf.Wait()
 
 		p.unSubscribe(topic, ss)
 
-		p.semaphore.Signal()
+		p.lf.Signal()
 	}
 }
 
