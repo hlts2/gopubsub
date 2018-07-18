@@ -2,7 +2,7 @@ package gopubsub
 
 import (
 	"hash/fnv"
-	"sync"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -14,10 +14,14 @@ const (
 
 // PubSub is pubsub messasing object
 type PubSub struct {
-	mu           *sync.Mutex
+	semaphore    *semaphore
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
 	publishItem  chan func() (string, interface{})
+}
+
+type semaphore struct {
+	flag int32
 }
 
 type registry struct {
@@ -44,10 +48,24 @@ func (s *subscriber) Read() <-chan interface{} {
 	return s.ch
 }
 
+// Wait for a semaphore and set flag on
+func (s *semaphore) Wait() {
+	for {
+		if s.flag == 0 && atomic.CompareAndSwapInt32(&s.flag, 0, 1) {
+			break
+		}
+	}
+}
+
+// Signal for a semaphore and set flag off
+func (s *semaphore) Signal() {
+	s.flag = 0
+}
+
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
-		mu:           new(sync.Mutex),
+		semaphore:    new(semaphore),
 		registries:   make(registries, 0, defaultPubSubTopicCapacity),
 		downScaleTgt: make(chan int),
 		publishItem:  make(chan func() (string, interface{}), 0),
@@ -72,11 +90,11 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 		positions: make(map[string]int),
 	}
 
-	p.mu.Lock()
+	p.semaphore.Wait()
 
 	p.subscribe(topic, subscriber)
 
-	p.mu.Unlock()
+	p.semaphore.Signal()
 
 	return subscriber
 }
@@ -84,11 +102,12 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 // AddSubsrcibe adds subscribes into a topic
 func (p *PubSub) AddSubsrcibe(topic string, target Subscriber) Subscriber {
 	if ss, ok := target.(*subscriber); ok {
-		p.mu.Lock()
+
+		p.semaphore.Wait()
 
 		p.subscribe(topic, ss)
 
-		p.mu.Unlock()
+		p.semaphore.Signal()
 	}
 
 	return target
@@ -127,17 +146,17 @@ func (p *PubSub) start() {
 	for {
 		select {
 		case index := <-p.downScaleTgt:
-			p.mu.Lock()
+			p.semaphore.Wait()
 
 			p.registries[index].subscribers = p.downScale(p.registries[index].subscribers)
 
-			p.mu.Unlock()
+			p.semaphore.Signal()
 		case item := <-p.publishItem:
-			p.mu.Lock()
+			p.semaphore.Wait()
 
 			p.publish(item())
 
-			p.mu.Unlock()
+			p.semaphore.Signal()
 		}
 	}
 }
@@ -195,11 +214,11 @@ func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 	}
 
 	if ss, ok := target.(*subscriber); ok {
-		p.mu.Lock()
+		p.semaphore.Wait()
 
 		p.unSubscribe(topic, ss)
 
-		p.mu.Unlock()
+		p.semaphore.Signal()
 	}
 }
 
