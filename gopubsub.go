@@ -4,6 +4,8 @@ import (
 	"hash/fnv"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/hlts2/gomaphore"
 )
 
 const (
@@ -14,7 +16,7 @@ const (
 
 // PubSub is pubsub messasing object
 type PubSub struct {
-	semaphore    *semaphore
+	semaphore    *gomaphore.Gomaphore
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
 	publishItem  chan func() (string, interface{})
@@ -65,7 +67,7 @@ func (s *semaphore) Signal() {
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
-		semaphore:    new(semaphore),
+		semaphore:    new(gomaphore.Gomaphore),
 		registries:   make(registries, 0, defaultPubSubTopicCapacity),
 		downScaleTgt: make(chan int),
 		publishItem:  make(chan func() (string, interface{}), 0),
