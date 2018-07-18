@@ -2,7 +2,6 @@ package gopubsub
 
 import (
 	"hash/fnv"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/hlts2/gomaphore"
@@ -20,10 +19,6 @@ type PubSub struct {
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
 	publishItem  chan func() (string, interface{})
-}
-
-type semaphore struct {
-	flag int32
 }
 
 type registry struct {
@@ -48,20 +43,6 @@ type Subscriber interface {
 // Read returns the channel that receive the message
 func (s *subscriber) Read() <-chan interface{} {
 	return s.ch
-}
-
-// Wait for a semaphore and set flag on
-func (s *semaphore) Wait() {
-	for {
-		if s.flag == 0 && atomic.CompareAndSwapInt32(&s.flag, 0, 1) {
-			break
-		}
-	}
-}
-
-// Signal signals a semaphore and set flag off
-func (s *semaphore) Signal() {
-	s.flag = 0
 }
 
 // NewPubSub returns PubSub object
