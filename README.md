@@ -57,3 +57,7 @@ message := <-subscriber.Read()
 
 ## Author
 [hlts2](https://github.com/hlts2)
+
+## LICENSE
+gopubsub released under MIT license, refer [LICENSE](https://github.com/hlts2/gopubsub/blob/master/LICENSE) file.
+
