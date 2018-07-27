@@ -2,9 +2,8 @@ package gopubsub
 
 import (
 	"hash/fnv"
+	"sync"
 	"unsafe"
-
-	"github.com/hlts2/lock-free"
 )
 
 const (
@@ -15,7 +14,7 @@ const (
 
 // PubSub is pubsub messasing object
 type PubSub struct {
-	lf           lockfree.LockFree
+	mu           *sync.Mutex
 	downScaleTgt chan int // Index of the registry to be scaled down
 	registries   registries
 	publishItem  chan func() (string, interface{})
@@ -48,7 +47,7 @@ func (s *subscriber) Read() <-chan interface{} {
 // NewPubSub returns PubSub object
 func NewPubSub() *PubSub {
 	ps := &PubSub{
-		lf:           lockfree.New(),
+		mu:           new(sync.Mutex),
 		registries:   make(registries, 0, defaultPubSubTopicCapacity),
 		downScaleTgt: make(chan int),
 		publishItem:  make(chan func() (string, interface{}), 0),
@@ -73,11 +72,11 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 		positions: make(map[string]int),
 	}
 
-	p.lf.Wait()
+	p.mu.Lock()
 
 	p.subscribe(topic, subscriber)
 
-	p.lf.Signal()
+	p.mu.Unlock()
 
 	return subscriber
 }
@@ -86,11 +85,11 @@ func (p *PubSub) Subscribe(topic string) Subscriber {
 func (p *PubSub) AddSubsrcibe(topic string, target Subscriber) Subscriber {
 	if ss, ok := target.(*subscriber); ok {
 
-		p.lf.Wait()
+		p.mu.Lock()
 
 		p.subscribe(topic, ss)
 
-		p.lf.Signal()
+		p.mu.Unlock()
 	}
 
 	return target
@@ -129,17 +128,17 @@ func (p *PubSub) start() {
 	for {
 		select {
 		case index := <-p.downScaleTgt:
-			p.lf.Wait()
+			p.mu.Lock()
 
 			p.registries[index].subscribers = p.downScale(p.registries[index].subscribers)
 
-			p.lf.Signal()
+			p.mu.Unlock()
 		case item := <-p.publishItem:
-			p.lf.Wait()
+			p.mu.Lock()
 
 			p.publish(item())
 
-			p.lf.Signal()
+			p.mu.Unlock()
 		}
 	}
 }
@@ -197,11 +196,11 @@ func (p *PubSub) UnSubscribe(topic string, target Subscriber) {
 	}
 
 	if ss, ok := target.(*subscriber); ok {
-		p.lf.Wait()
+		p.mu.Lock()
 
 		p.unSubscribe(topic, ss)
 
-		p.lf.Signal()
+		p.mu.Unlock()
 	}
 }
 
